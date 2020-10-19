@@ -20,11 +20,10 @@ def load(image_path):
 
     ### YOUR CODE HERE
     # Use skimage io.imread
-    pass
+    out = io.imread(image_path)
     ### END YOUR CODE
-
     # Let's convert the image to be between the correct range.
-    out = out.astype(np.float64) / 255
+    out = out.astype(np.float64)/255
     return out
 
 
@@ -41,13 +40,8 @@ def crop_image(image, start_row, start_col, num_rows, num_cols):
     Returns:
         out: numpy array of shape(num_rows, num_cols, 3).
     """
-
     out = None
-
-    ### YOUR CODE HERE
-    pass
-    ### END YOUR CODE
-
+    out = image[start_row:start_row+num_rows, start_col:start_col+num_cols, :]
     return out
 
 
@@ -63,14 +57,8 @@ def dim_image(image):
 
     Returns:
         out: numpy array of shape(image_height, image_width, 3).
-    """
-
-    out = None
-
-    ### YOUR CODE HERE
-    pass
-    ### END YOUR CODE
-
+    """       
+    out = .5*(image**2)
     return out
 
 
@@ -91,14 +79,15 @@ def resize_image(input_image, output_rows, output_cols):
 
     # 1. Create the resized output image
     output_image = np.zeros(shape=(output_rows, output_cols, 3))
-
+    
+    rows_ratio = output_rows/input_rows
+    cols_ratio = output_cols/input_cols
+    
     # 2. Populate the `output_image` array using values from `input_image`
-    #    > This should require two nested for loops!
-
-    ### YOUR CODE HERE
-    pass
-    ### END YOUR CODE
-
+    for r in range(output_rows):
+        for c in range(output_cols):
+            output_image[r, c, :] = input_image[int(r/rows_ratio), int(c/cols_ratio), :]
+             
     # 3. Return the output image
     return output_image
 
@@ -117,10 +106,11 @@ def rotate2d(point, theta):
     assert isinstance(theta, float)
 
     # Reminder: np.cos() and np.sin() will be useful here!
-
-    ## YOUR CODE HERE
-    pass
-    ### END YOUR CODE
+    new_x = np.cos(theta)*point[0] - np.sin(theta)*point[1]
+    new_y = np.cos(theta)*point[1] + np.sin(theta)*point[0]
+    
+    return np.array([new_x, new_y])
+    
 
 
 def rotate_image(input_image, theta):
@@ -139,10 +129,17 @@ def rotate_image(input_image, theta):
 
     # 1. Create an output image with the same shape as the input
     output_image = np.zeros_like(input_image)
+    center_x = input_image.shape[0]/2
+    center_y = input_image.shape[1]/2
 
-    ## YOUR CODE HERE
-    pass
-    ### END YOUR CODE
-
+    for r in range(input_rows):
+        for c in range(input_cols):
+         
+            rotated_x, rotated_y = rotate2d(np.array([r-center_x, c-center_y]), theta)
+            if 0 <= rotated_x+center_x < input_image.shape[0] and 0 <= rotated_y+center_y < input_image.shape[1]:
+                output_image[r, c, :] = input_image[int(rotated_x+center_x), int(rotated_y + center_y), :]
+                
+            
+            
     # 3. Return the output image
     return output_image

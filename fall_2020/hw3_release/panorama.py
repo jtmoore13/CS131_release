@@ -42,11 +42,17 @@ def harris_corners(img, window_size=3, k=0.04):
 
     dx = filters.sobel_v(img)
     dy = filters.sobel_h(img)
-
-    ### YOUR CODE HERE
-    pass
-    ### END YOUR CODE
-
+    
+    Ix_2 = convolve(dx**2, window)
+    Iy_2 = convolve(dy**2, window)
+    Ix_Iy = convolve(dy*dx, window)
+      
+    # ad - bc
+    det = Ix_2*Iy_2 - Ix_Iy**2
+    # a + d
+    trace = Ix_2 + Iy_2
+    response = det - k*trace**2
+            
     return response
 
 
@@ -68,11 +74,12 @@ def simple_descriptor(patch):
     Returns:
         feature: 1D array of shape (H * W)
     """
-    feature = []
-    ### YOUR CODE HERE
-    pass
-    ### END YOUR CODE
-    return feature
+
+    avg = np.mean(patch)
+    std = np.std(patch)
+    feature = (patch - avg) / std
+    
+    return feature.flatten()
 
 
 def describe_keypoints(image, keypoints, desc_func, patch_size=16):
@@ -120,15 +127,17 @@ def match_descriptors(desc1, desc2, threshold=0.5):
         of matching descriptors
     """
     matches = []
-
+   
     M = desc1.shape[0]
     dists = cdist(desc1, desc2)
+    sorted_dists = np.sort(dists, axis=1)
+    
+    for i in range(M):
+        if sorted_dists[i][0] / sorted_dists[i][1] < threshold:
+            matches.append((i, np.argmin(dists[i, :])))
 
-    ### YOUR CODE HERE
-    pass
-    ### END YOUR CODE
+    return np.array(matches)
 
-    return matches
 
 
 def fit_affine_matrix(p1, p2):
@@ -151,16 +160,14 @@ def fit_affine_matrix(p1, p2):
         H: a matrix of shape (P+1, P+1) that transforms p2 to p1 in homogeneous
         coordinates
     """
-
+    M, P = p1.shape
     assert (p1.shape[0] == p2.shape[0]),\
         'Different number of points in p1 and p2'
     p1 = pad(p1)
     p2 = pad(p2)
-
-    ### YOUR CODE HERE
-    pass
-    ### END YOUR CODE
-
+        
+    H = np.linalg.lstsq(p2, p1, rcond=None)[0]
+    
     # Sometimes numerical issues cause least-squares to produce the last
     # column which is not exactly [0, 0, 1]
     H[:,2] = np.array([0, 0, 1])
@@ -216,14 +223,43 @@ def ransac(keypoints1, keypoints2, matches, n_iters=200, threshold=20):
     max_inliers = np.zeros(N, dtype=bool)
     n_inliers = 0
 
+   
     # RANSAC iteration start
     
     # Note: while there're many ways to do random sampling, please use `np.random.shuffle()`
     # followed by slicing out the first `n_samples` matches here in order to align with the auto-grader.
     
-    ### YOUR CODE HERE
-    pass
-    ### END YOUR CODE
+    most = 0
+    
+    for i in range(n_iters):
+        inliers = []
+        # 1. compute random set of matches
+        np.random.shuffle(matches)
+        samples = matches[:n_samples]
+        sample1 = keypoints1[samples[:,0]]
+        sample2 = keypoints2[samples[:,1]]
+
+        # 2. compute affine transformation matrix
+        H = fit_affine_matrix(sample1, sample2)        
+        transformed_p2 = np.matmul(matched2, H)
+
+        # 3. find inliers using x wthe given threshold
+        for j in range(transformed_p2.shape[0]):
+            if np.linalg.norm(matched1[j] - transformed_p2[j]) < threshold:
+                inliers.append(True)
+            else:
+                inliers.append(False)
+        # 4. keep the largest set of inliers
+        if inliers.count(True) > most:
+            max_inliers = inliers
+            most = inliers.count(True)
+
+    # re-compute the least-squares estimate on all the inliers
+    matched1_true = (matched1[max_inliers])[:,:2]
+    matched2_true = (matched2[max_inliers])[:,:2]
+    
+    H = fit_affine_matrix(matched1_true, matched2_true)
+
     print(H)
     return H, orig_matches[max_inliers]
 
@@ -254,6 +290,7 @@ def hog_descriptor(patch, pixels_per_cell=(8,8)):
     n_bins = 9
     degrees_per_bin = 180 // n_bins
 
+    # 1. compute gradient image in x and y directions
     Gx = filters.sobel_v(patch)
     Gy = filters.sobel_h(patch)
 
@@ -273,11 +310,28 @@ def hog_descriptor(patch, pixels_per_cell=(8,8)):
     cells = np.zeros((rows, cols, n_bins))
 
     # Compute histogram per cell
-    ### YOUR CODE HERE
-    pass
-    ### YOUR CODE HERE
+    
+    H, W = patch.shape
+    M, N = pixels_per_cell
+    block = np.zeros((rows*cols, n_bins))
+    count = 0
+    for i in range(rows):
+        for j in range(cols):
+            
+            histogram = np.zeros(n_bins)
+            
+            for x in range(N):
+                for y in range(M):
+                    angle = theta_cells[i][j][y][x]
+                    bin_num = (angle % 180) / degrees_per_bin
+                    histogram[int(bin_num)] += G_cells[i][j][y][x]
+                    
+            block[count:,] = histogram
+            count += 1
+    
+    block = block.flatten()
+    return block / np.linalg.norm(block)
 
-    return block
 
 
 def linear_blend(img1_warped, img2_warped):
@@ -309,9 +363,21 @@ def linear_blend(img1_warped, img2_warped):
     # This is where to start weight mask for warped image 2
     left_margin = np.argmax(img2_mask[out_H//2, :].reshape(1, out_W), 1)[0]
 
-    ### YOUR CODE HERE
-    pass
-    ### END YOUR CODE
+    weight_matrix1 = np.zeros((out_H, out_W))
+    wm1 = np.zeros(out_W)
+    wm1[:left_margin] = 1
+    wm1[left_margin:right_margin] = np.linspace(1, 0, num=right_margin-left_margin)
+    weight_matrix1[:,:] = wm1
+    
+    weight_matrix2 = np.zeros((out_H, out_W))
+    wm2 = np.zeros(out_W)
+    wm2[right_margin:] = 1
+    wm2[left_margin:right_margin] = np.linspace(0, 1, num=right_margin-left_margin)
+    weight_matrix2[:,:] = wm2
+    
+    new1 = img1_warped*weight_matrix1
+    new2 = img2_warped*weight_matrix2
+    merged = new1 + new2
 
     return merged
 

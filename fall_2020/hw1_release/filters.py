@@ -28,10 +28,19 @@ def conv_nested(image, kernel):
     Hk, Wk = kernel.shape
     out = np.zeros((Hi, Wi))
 
-    ### YOUR CODE HERE
-    pass
-    ### END YOUR CODE
-
+    kernel = np.flip(kernel)
+    
+    for wi in range(Wi):
+        for hi in range(Hi): 
+            out_pixel = 0   
+            # sum up all the overlapping pixels between the kernel and image
+            for x in range(Wk):
+                for y in range(Hk):
+                    if  0 <= wi+x-Wk//2 < Wi and 0 <= hi+y-Hk//2 < Hi:
+                        out_pixel += kernel[y][x]*image[hi+y-Hk//2][wi+x-Wk//2]
+ 
+            out[hi][wi] = out_pixel
+                                   
     return out
 
 def zero_pad(image, pad_height, pad_width):
@@ -53,11 +62,15 @@ def zero_pad(image, pad_height, pad_width):
     """
 
     H, W = image.shape
-    out = None
 
-    ### YOUR CODE HERE
-    pass
-    ### END YOUR CODE
+    out = np.zeros((H+2*pad_height, W+2*pad_width))
+    start_x = (W+2*pad_width)//2 - W//2
+    start_y = (H+2*pad_height)//2 - H//2
+    
+    for x in range(W):
+        for y in range(H):
+            out[start_y+y][start_x+x] = image[y][x]
+    
     return out
 
 
@@ -83,10 +96,22 @@ def conv_fast(image, kernel):
     Hi, Wi = image.shape
     Hk, Wk = kernel.shape
     out = np.zeros((Hi, Wi))
-
-    ### YOUR CODE HERE
-    pass
-    ### END YOUR CODE
+    
+    kernel = np.flip(kernel)
+    padded_image = zero_pad(image, Hk//2, Wk//2)
+    
+    half_ix = Wi//2
+    half_iy = Hi//2
+    half_kx = Wk//2
+    half_ky = Hk//2
+    start_y = padded_image.shape[0]//2 - half_iy
+    start_x = padded_image.shape[1]//2 - half_ix
+  
+    for x in range(padded_image.shape[1]):
+        for y in range(padded_image.shape[0]):
+            if start_x <= x <= padded_image.shape[1]-start_x-1 and start_y <= y <= padded_image.shape[0]-start_y-1:
+                mult = np.multiply(kernel,padded_image[y-half_ky:y-half_ky+Hk, x-half_kx:x-half_kx+Wk])
+                out[y-start_y][x-start_x] = np.sum(mult)
 
     return out
 
@@ -102,13 +127,8 @@ def cross_correlation(f, g):
     Returns:
         out: numpy array of shape (Hf, Wf).
     """
+    return conv_fast(f, np.flip(g))
 
-    out = None
-    ### YOUR CODE HERE
-    pass
-    ### END YOUR CODE
-
-    return out
 
 def zero_mean_cross_correlation(f, g):
     """ Zero-mean cross-correlation of image f and template g.
@@ -124,13 +144,10 @@ def zero_mean_cross_correlation(f, g):
     Returns:
         out: numpy array of shape (Hf, Wf).
     """
-
-    out = None
-    ### YOUR CODE HERE
-    pass
-    ### END YOUR CODE
-
-    return out
+    g_mean = np.mean(g)
+    g = np.subtract(g, g_mean)
+    
+    return conv_fast(f, np.flip(g))
 
 def normalized_cross_correlation(f, g):
     """ Normalized cross-correlation of image f and template g.
@@ -148,10 +165,51 @@ def normalized_cross_correlation(f, g):
     Returns:
         out: numpy array of shape (Hf, Wf).
     """
-
-    out = None
-    ### YOUR CODE HERE
-    pass
-    ### END YOUR CODE
-
+    
+    g_mean = np.mean(g)
+    g_std = np.std(g)
+    new_g = np.divide(np.subtract(g, g_mean), g_std)
+    
+    Hf, Wf = f.shape
+    Hg, Wg = g.shape
+    out = np.zeros((Hf, Wf))
+    
+    padded_image = zero_pad(f, Hg//2, Wg//2)
+    
+    half_fx = Wf//2
+    half_fy = Hf//2
+    half_gx = Wg//2
+    half_gy = Hg//2
+    
+    start_y = padded_image.shape[0]//2 - half_fy
+    start_x = padded_image.shape[1]//2 - half_fx
+  
+    for x in range(padded_image.shape[1]):
+        for y in range(padded_image.shape[0]):
+            if start_x <= x <= padded_image.shape[1]-start_x-1 and start_y <= y <= padded_image.shape[0]-start_y-1:
+                patch = padded_image[y-half_gy:y-half_gy+Hg, x-half_gx:x-half_gx+Wg]
+                patch_mean = np.mean(patch)
+                patch_std = np.std(patch)
+                new_patch = np.divide(np.subtract(patch, patch_mean), patch_std)
+          
+                mult = np.multiply(new_g, new_patch)
+                    
+                out[y-start_y][x-start_x] = np.sum(mult)
+                
     return out
+    
+    
+    
+    
+    
+    
+    
+    
+
+
+
+
+
+
+
+

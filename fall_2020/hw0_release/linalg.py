@@ -14,11 +14,7 @@ def dot_product(a, b):
     Returns:
         out: numpy array of shape (x, x) (scalar if x = 1)
     """
-    out = None
-    ### YOUR CODE HERE
-    pass
-    ### END YOUR CODE
-    return out
+    return np.dot(a,b)
 
 
 def complicated_matrix_function(M, a, b):
@@ -34,13 +30,10 @@ def complicated_matrix_function(M, a, b):
 
     Returns:
         out: numpy matrix of shape (x, 1).
-    """
-    out = None
-    ### YOUR CODE HERE
-    pass
-    ### END YOUR CODE
-
-    return out
+    """ 
+    ab = a.dot(b)
+    mat = M.dot(a.T)
+    return np.array(ab*mat).reshape(len(M), 1)
 
 
 def eigen_decomp(M):
@@ -49,7 +42,7 @@ def eigen_decomp(M):
     (optional): You might find the `np.linalg.eig` function useful.
 
     Args:
-        matrix: numpy matrix of shape (m, n)
+        matrix: numpy matrix of shape (m, m)
 
     Returns:
         w: numpy array of shape (m, m) such that the column v[:,i] is the eigenvector corresponding to the eigenvalue w[i].
@@ -57,9 +50,11 @@ def eigen_decomp(M):
     """
     w = None
     v = None
-    ### YOUR CODE HERE
-    pass
-    ### END YOUR CODE
+    
+    vals = np.linalg.eig(M)
+
+    w = vals[0]
+    v = vals[1]
     return w, v
 
 
@@ -79,17 +74,11 @@ def euclidean_distance_native(u, v):
     assert isinstance(v, list)
     assert len(u) == len(v)
 
-    # Compute the distance!
-    # Notes:
-    #  1) Try breaking this problem down: first, we want to get
-    #     the difference between corresponding elements in our
-    #     input arrays. Then, we want to square these differences.
-    #     Finally, we want to sum the squares and square root the
-    #     sum.
-
-    ### YOUR CODE HERE
-    pass
-    ### END YOUR CODE
+    sum = 0
+    for i in range(len(v)):
+        diff = u[i]-v[i]
+        sum += diff*diff
+    return sum**.5
 
 
 def euclidean_distance_numpy(u, v):
@@ -108,20 +97,10 @@ def euclidean_distance_numpy(u, v):
     assert isinstance(v, np.ndarray)
     assert u.shape == v.shape
 
-    # Compute the distance!
-    # Note:
-    #  1) You shouldn't need any loops
-    #  2) Some functions you can Google that might be useful:
-    #         np.sqrt(), np.sum()
-    #  3) Try breaking this problem down: first, we want to get
-    #     the difference between corresponding elements in our
-    #     input arrays. Then, we want to square these differences.
-    #     Finally, we want to sum the squares and square root the
-    #     sum.
-
-    ### YOUR CODE HERE
-    pass
-    ### END YOUR CODE
+    diff = np.subtract(u,v)
+    squares = np.power(diff, 2)
+    summed = np.sum(squares)
+    return np.sqrt(summed)
 
 
 def get_eigen_values_and_vectors(M, k):
@@ -143,7 +122,13 @@ def get_eigen_values_and_vectors(M, k):
     """
     eigenvalues = []
     eigenvectors = []
-    ### YOUR CODE HERE
-    pass
-    ### END YOUR CODE
+    
+    vals = np.linalg.eig(M)
+    abs_vals = np.abs(vals[0])
+    sorted_indeces = np.argsort(abs_vals)[::-1]
+    
+    for i in range(k):
+        eigenvalues.append(vals[0][sorted_indeces[i]])
+        eigenvectors.append(vals[1][:,sorted_indeces[i]])
+
     return eigenvalues, eigenvectors

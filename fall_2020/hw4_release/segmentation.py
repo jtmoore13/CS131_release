@@ -44,10 +44,26 @@ def kmeans(features, k, num_iters=100):
     assignments = np.zeros(N, dtype=np.uint32)
 
     for n in range(num_iters):
-        ### YOUR CODE HERE
-        pass
-        ### END YOUR CODE
+        changes = 0
+        # assign each point to its closest cluster
+        for i in range(N):
+            dists = []
+            for c in range(k):
+                dists.append(np.linalg.norm(features[i]-centers[c]))
+            closest = min(dists)
+            new_val = dists.index(closest)
+            if new_val != assignments[i]:
+                changes += 1
+            assignments[i] = new_val
 
+        # find the new cluster centers given the newly grouped points
+        for center_num in range(k):
+            centers[center_num] = np.mean((features[assignments == center_num]), axis=0)           
+                
+        # break if the centers didn't move
+        if changes == 0:
+            break
+            
     return assignments
 
 def kmeans_fast(features, k, num_iters=100):
@@ -78,12 +94,18 @@ def kmeans_fast(features, k, num_iters=100):
     idxs = np.random.choice(N, size=k, replace=False)
     centers = features[idxs]
     assignments = np.zeros(N, dtype=np.uint32)
-
+   
     for n in range(num_iters):
-        ### YOUR CODE HERE
-        pass
-        ### END YOUR CODE
-
+        prev_assignments = assignments
+        diffs = cdist(centers, features)
+        assignments = np.argmin(diffs, axis=0)
+        
+        for center_num in range(k):
+            centers[center_num] = np.mean((features[assignments == center_num]), axis=0)
+            
+        if np.linalg.norm(prev_assignments-assignments) == 0:
+            break
+                   
     return assignments
 
 
@@ -122,9 +144,7 @@ def hierarchical_clustering(features, k):
         assignments - Array representing cluster assignment of each point.
             (e.g. i-th point is assigned to cluster assignments[i])
     """
-
-
-
+    
     N, D = features.shape
 
     assert N >= k, 'Number of clusters cannot be greater than number of points'
@@ -133,11 +153,28 @@ def hierarchical_clustering(features, k):
     assignments = np.arange(N, dtype=np.uint32)
     centers = np.copy(features)
     n_clusters = N
-
+        
     while n_clusters > k:
-        ### YOUR CODE HERE
-        pass
-        ### END YOUR CODE
+        dists = squareform(pdist(centers))
+        np.fill_diagonal(dists, float('inf'))
+
+        j, i = np.unravel_index(np.argmin(dists), dists.shape)
+        bigger, smaller = max(j, i), min(j, i)
+
+        # merge cluster i and cluster j
+        for a in range(N):
+            if assignments[a] == bigger:
+                assignments[a] = smaller
+            elif assignments[a] > bigger:
+                assignments[a] -= 1
+                
+        # delete the old cluster
+        centers = np.delete(centers, bigger, axis=0)
+
+        # recompute the new mean of the combined cluster
+        centers[smaller] = np.mean((features[assignments == smaller]), axis=0)
+        
+        n_clusters -= 1
 
     return assignments
 
@@ -154,13 +191,9 @@ def color_features(img):
     """
     H, W, C = img.shape
     img = img_as_float(img)
-    features = np.zeros((H*W, C))
 
-    ### YOUR CODE HERE
-    pass
-    ### END YOUR CODE
+    return img.reshape(H*W, C)
 
-    return features
 
 def color_position_features(img):
     """ Represents a pixel by its color and position.
@@ -182,12 +215,22 @@ def color_position_features(img):
         features - array of (H * W, C+2)
     """
     H, W, C = img.shape
-    color = img_as_float(img)
+    #color = img_as_float(img)
     features = np.zeros((H*W, C+2))
-
-    ### YOUR CODE HERE
-    pass
-    ### END YOUR CODE
+    
+    # convert to (r, g, b, x, y)
+    index = 0
+    for y in range(H):
+        for x in range(W):
+            row = []
+            for c in img[y][x]:
+                row.append(c)
+            row.extend((x,y))
+            features[index] = row
+            index += 1
+              
+    # normalize
+    features = (features - np.mean(features, axis=0)) / np.std(features, axis=0)
 
     return features
 
@@ -200,7 +243,7 @@ def my_features(img):
     Returns:
         features - array of (H * W, C)
     """
-    features = None
+    features = np.zeros((H*W, C))
     ### YOUR CODE HERE
     pass
     ### END YOUR CODE
@@ -223,13 +266,15 @@ def compute_accuracy(mask_gt, mask):
         accuracy - The fraction of pixels where mask_gt and mask agree. A
             bigger number is better, where 1.0 indicates a perfect segmentation.
     """
+    H, W = mask.shape
+    matches = 0 
 
-    accuracy = None
-    ### YOUR CODE HERE
-    pass
-    ### END YOUR CODE
+    for x in range(W):
+        for y in range(H):
+            if mask_gt[y][x] == mask[y][x]:
+                matches += 1
 
-    return accuracy
+    return matches/(H*W)
 
 def evaluate_segmentation(mask_gt, segments):
     """ Compare the estimated segmentation with the ground truth.

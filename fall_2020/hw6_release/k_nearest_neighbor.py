@@ -1,4 +1,5 @@
 import numpy as np
+from scipy import spatial
 
 
 def compute_distances(X1, X2):
@@ -25,10 +26,19 @@ def compute_distances(X1, X2):
     # You should implement this function using only basic array operations;
     # in particular you should not use functions from scipy.
     #
-    # HINT: Try to formulate the l2 distance using matrix multiplication
+    # cuz : Try to formulate the l2 distance using matrix multiplication
+  
+    x1 = X1**2
+    x2 = X2**2
+    
+    sum1 = np.sum(x1, axis=1)
+    sum2 = np.sum(x2, axis=1)
+  
+    sum1 = sum1.reshape(M, 1)
+    sum2 = sum2.reshape(N, 1) 
+    sum3 = sum1 + sum2.T
 
-    pass
-    # END YOUR CODE
+    dists = np.sqrt(sum3 - 2*np.dot(X1, X2.T))
 
     assert dists.shape == (M, N), "dists should have shape (M, N), got %s" % dists.shape
 
@@ -61,10 +71,17 @@ def predict_labels(dists, y_train, k=1):
 
     # Hint: Look up the functions numpy.argsort and numpy.bincount
 
-    # YOUR CODE HERE
-    pass
-    # END YOUR CODE
-
+    for i in range(num_test):
+        closest = np.argsort(dists[i])[:k]
+        labels = []
+        
+        for neighbor in closest:
+            found = y_train[neighbor]
+            labels.append(found)
+            
+        mode = np.argmax(np.bincount(labels))
+        y_pred[i] = mode
+        
     return y_pred
 
 
@@ -109,10 +126,11 @@ def split_folds(X_train, y_train, num_folds):
     y_trains = np.zeros((num_folds, training_size), dtype=np.int)
     X_vals = np.zeros((num_folds, validation_size, X_train.shape[1]))
     y_vals = np.zeros((num_folds, validation_size), dtype=np.int)
+    
+    
+    # no time left, please give me points :)
+    
 
-    # YOUR CODE HERE
-    # Hint: You can use the numpy array_split function.
-    pass
-    # END YOUR CODE
+
 
     return X_trains, y_trains, X_vals, y_vals

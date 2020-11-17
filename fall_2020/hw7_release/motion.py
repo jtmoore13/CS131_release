@@ -37,7 +37,7 @@ def lucas_kanade(img1, img2, keypoints, window_size=5):
     # Compute partial derivatives
     Iy, Ix = np.gradient(img1)
     It = img2 - img1
-
+    
     # For each [y, x] in keypoints, estimate flow vector [vy, vx]
     # using Lucas-Kanade method and append it to flow_vectors.
     for y, x in keypoints:
@@ -46,10 +46,19 @@ def lucas_kanade(img1, img2, keypoints, window_size=5):
         # In order to achieve more accurate results, image brightness at subpixel
         # locations can be computed using bilinear interpolation.
         y, x = int(round(y)), int(round(x))
+        
+        p = It[y-w:y+w+1, x-w:x+w+1]
+        Iy_col = Iy[y-w:y+w+1, x-w:x+w+1]
+        Ix_col = Ix[y-w:y+w+1, x-w:x+w+1]
+        
+        Iy_col = Iy_col.flatten().reshape(window_size**2, 1)
+        Ix_col = Ix_col.flatten().reshape(window_size**2, 1)
+        
+        A = np.hstack((Ix_col, Iy_col))
+        b = -1*p.flatten().reshape(window_size**2, 1)
+        v = np.dot(np.linalg.inv(np.dot(A.T, A)), np.dot(A.T, b))
 
-        ### YOUR CODE HERE
-        pass
-        ### END YOUR CODE
+        flow_vectors.append(np.flip(v.flatten()))
 
     flow_vectors = np.array(flow_vectors)
 
@@ -91,10 +100,12 @@ def iterative_lucas_kanade(img1, img2, keypoints, window_size=9, num_iters=7, g=
         x1 = int(round(x))
 
         # TODO: Compute inverse of G at point (x1, y1)
-        ### YOUR CODE HERE
-        pass
-        ### END YOUR CODE
-
+        Gx = Ix[y1-w:y1+w+1, x1-w:x1+w+1]
+        Gy = Iy[y1-w:y1+w+1, x1-w:x1+w+1]
+        G = np.array([[np.sum(Gx**2), np.sum(Gx*Gy)],
+                      [np.sum(Gx*Gy), np.sum(Gy**2)]])
+        G_inv = np.linalg.inv(G)
+    
         # Iteratively update flow vector
         for k in range(num_iters):
             vx, vy = v
@@ -103,9 +114,11 @@ def iterative_lucas_kanade(img1, img2, keypoints, window_size=9, num_iters=7, g=
             x2 = int(round(x + gx + vx))
 
             # TODO: Compute bk and vk = inv(G) x bk
-            ### YOUR CODE HERE
-            pass
-            ### END YOUR CODE
+            Gt = img1[y1-w:y1+w+1, x1-w:x1+w+1] - img2[y2-w:y2+w+1, x2-w:x2+w+1]
+            b_k = np.array([[np.sum(Gx*Gt)],
+                            [np.sum(Gy*Gt)]])
+            
+            vk = np.dot(G_inv, b_k).flatten().reshape(2)
 
             # Update flow vector by vk
             v += vk
@@ -116,10 +129,7 @@ def iterative_lucas_kanade(img1, img2, keypoints, window_size=9, num_iters=7, g=
     return np.array(flow_vectors)
 
 
-def pyramid_lucas_kanade(
-    img1, img2, keypoints, window_size=9, num_iters=7, level=2, scale=2
-):
-
+def pyramid_lucas_kanade(img1, img2, keypoints, window_size=9, num_iters=7, level=2, scale=2):
     """Pyramidal Lucas Kanade method
 
     Args:
@@ -139,15 +149,18 @@ def pyramid_lucas_kanade(
     # Build image pyramids of img1 and img2
     pyramid1 = tuple(pyramid_gaussian(img1, max_layer=level, downscale=scale))
     pyramid2 = tuple(pyramid_gaussian(img2, max_layer=level, downscale=scale))
-
+    
     # Initialize pyramidal guess
     g = np.zeros(keypoints.shape)
-
+    
+    p = keypoints
+    
     for L in range(level, -1, -1):
-        ### YOUR CODE HERE
-        pass
-        ### END YOUR CODE
-
+        p = keypoints/(scale**L)
+        d = iterative_lucas_kanade(pyramid1[L], pyramid2[L], p, window_size, num_iters, g)
+        if L != 0:
+            g = scale*(g+d)
+        
     d = g + d
     return d
 
@@ -166,9 +179,14 @@ def compute_error(patch1, patch2):
     """
     assert patch1.shape == patch2.shape, "Different patch shapes"
     error = 0
-    ### YOUR CODE HERE
-    pass
-    ### END YOUR CODE
+    
+    patch1 = (patch1 - np.mean(patch1)) / np.std(patch1)
+    patch2 = (patch2 - np.mean(patch2)) / np.std(patch2)
+    diff_sums = np.sum((patch2 - patch1)**2)
+          
+    size = (patch1.shape[0]*patch1.shape[1])
+    error = diff_sums/size
+
     return error
 
 
@@ -257,8 +275,19 @@ def IoU(bbox1, bbox2):
     x2, y2, w2, h2 = bbox2
     score = 0
 
-    ### YOUR CODE HERE
-    pass
-    ### END YOUR CODE
+    area1 = w1*h1
+    area2 = w2*h2
+
+    x_list = [x1, x1+w1, x2, x2+w2]
+    x_list.sort()
+    y_list = [y1, y1-h1, y2, y2-h2]
+    y_list.sort()
+    
+    x_overlap = x_list[2]-x_list[1]
+    y_overlap = y_list[2]-y_list[1]
+
+    intersection = x_overlap*y_overlap
+    union = area1 + area2 - intersection
+    score = intersection/union
 
     return score
